@@ -2,7 +2,7 @@
 
 // Import necessary modules from Next.js and React
 import { Press_Start_2P } from "next/font/google";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 
 /*
  * Enhanced landing page for Weird.cloud
@@ -42,19 +42,12 @@ export default function Home() {
   const [sprite, setSprite] = useState<string[][]>([]);
   const [ascii, setAscii] = useState<string[]>([]);
 
-  // Ref for the glitch overlay so we can attach and remove classes
-  const glitchRef = useRef<HTMLDivElement>(null);
-
-  // When glitchActive changes, toggle the glitch animation class
-  useEffect(() => {
-    const el = glitchRef.current;
-    if (glitchActive && el) {
-      el.classList.add("glitch-active");
-      return () => {
-        el.classList.remove("glitch-active");
-      };
-    }
-  }, [glitchActive]);
+  /*
+   * Because we no longer display a glitch overlay inside the card, we
+   * remove the ref and associated effect.  The glitch animation is
+   * applied directly to the `<h1>` via conditional class names.
+   */
+  // No ref or useEffect required for glitch anymore
 
   /**
    * Generate a random 8×8 pixel sprite.  Each cell is assigned a random
@@ -99,6 +92,7 @@ export default function Home() {
   function handleCardClick(label: string) {
     switch (label) {
       case "AI Glitch Art":
+        // Toggle the glitch animation on the heading instead of overlay
         setGlitchActive(!glitchActive);
         break;
       case "Brutalist CSS Generator": {
@@ -110,6 +104,10 @@ export default function Home() {
         // Apply the new colours to CSS custom properties defined in globals.css
         document.documentElement.style.setProperty("--background", background);
         document.documentElement.style.setProperty("--foreground", foreground);
+        // Also update the card area background to a complementary hue
+        const cardHue = (bgHue + 90 + Math.floor(Math.random() * 60) - 30 + 360) % 360;
+        const cardBg = `hsl(${cardHue}, 25%, ${45 + Math.floor(Math.random() * 10)}%)`;
+        document.documentElement.style.setProperty("--card-bg", cardBg);
         break;
       }
       case "Pixel Sprite Mixer":
@@ -126,7 +124,18 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+    <div
+      className="min-h-screen flex flex-col"
+      /* Define a CSS variable for the card area background so it can be
+       * updated dynamically and also give it a pleasant default. */
+      style={{
+        background: "var(--background)",
+        color: "var(--foreground)",
+        // Provide a default value for the card background; this will be
+        // overridden by the Brutalist generator.
+        '--card-bg': '#6a8f3b',
+      } as React.CSSProperties}
+    >
       {/* Hero section with a full‑screen background image and tagline */}
       <section
         className="flex flex-col items-center justify-center flex-1 w-full px-4 text-center"
@@ -137,35 +146,37 @@ export default function Home() {
         }}
       >
         <h1
-          className={
-            `${pressStart.className} text-4xl md:text-6xl mb-4 drop-shadow-[0_0_4px_rgba(0,255,0,0.6)]`
-          }
+          className={`${pressStart.className} text-4xl md:text-6xl mb-4 ${
+            glitchActive ? 'glitch-text' : ''
+          }`}
         >
           weird.cloud
         </h1>
-        <p className="text-lg md:text-2xl font-mono">weird shit made by AI</p>
+        <p className="text-lg md:text-2xl font-mono text-[#c49ff0]">
+          weird shit made by AI
+        </p>
       </section>
 
       {/* Gallery section with four interactive cards */}
-      <section className="w-full py-12 px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <section
+        className="w-full py-12 px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"
+        /* Use the CSS variable defined on the root element to set the
+         * background of the card area. */
+        style={{ backgroundColor: 'var(--card-bg)' }}
+      >
         {cardLabels.map((label) => (
           <div
             key={label}
             onClick={() => handleCardClick(label)}
-            className="relative bg-[#0d0d0d] border border-green-800 rounded-lg p-4 flex items-center justify-center hover:bg-[#1a1a1a] transition-colors cursor-pointer overflow-hidden"
+            className="relative bg-[#0d0d0d] border border-purple-800 rounded-lg p-4 flex items-center justify-center hover:bg-[#1f1f2e] transition-colors cursor-pointer overflow-hidden"
           >
-            <span className={`${pressStart.className} text-sm text-center`}>{label}</span>
-            {/* AI Glitch overlay */}
-            {label === "AI Glitch Art" && glitchActive && (
-              <div
-                ref={glitchRef}
-                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80"
-              >
-                <span className={`${pressStart.className} text-2xl glitch-text`}>GL!TCH</span>
-              </div>
-            )}
+            <span
+              className={`${pressStart.className} text-sm text-center text-[#d6a4ff]`}
+            >
+              {label}
+            </span>
             {/* Pixel Sprite overlay */}
-            {label === "Pixel Sprite Mixer" && spriteActive && (
+            {label === 'Pixel Sprite Mixer' && spriteActive && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 p-2">
                 <div className="grid grid-cols-8 gap-[1px]">
                   {sprite.map((row, i) =>
@@ -179,27 +190,32 @@ export default function Home() {
                 </div>
               </div>
             )}
-            {/* Neon ASCII overlay */}
-            {label === "Neon ASCII Shader" && asciiActive && (
-              <div className="absolute inset-0 overflow-auto p-2 bg-black bg-opacity-90">
-                {ascii.map((line, idx) => (
-                  <pre key={idx} className="font-mono text-xs neon-text">
-                    {line}
-                  </pre>
-                ))}
-              </div>
-            )}
           </div>
         ))}
       </section>
 
       {/* Footer with a call‑to‑action button */}
-      <footer className="py-8 text-center">
+      <footer className="py-8 text-center relative">
+        {/* When the Neon ASCII Shader is active, render the ASCII art in the footer.
+            We absolutely position the container so it sits behind the button and
+            disable pointer events so it doesn’t block interactions. */}
+        {asciiActive && (
+          <div
+            className="absolute inset-0 overflow-auto px-4 flex flex-col items-center justify-center"
+            style={{ pointerEvents: 'none' }}
+          >
+            {ascii.map((line, idx) => (
+              <pre key={idx} className="font-mono text-xs neon-text m-0">
+                {line}
+              </pre>
+            ))}
+          </div>
+        )}
         <a
           href="https://github.com/cresencio/weird-splash"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block px-6 py-3 bg-green-600 text-black font-bold rounded-full hover:bg-green-500 transition-colors"
+          className="inline-block px-6 py-3 bg-green-600 text-black font-bold rounded-full hover:bg-green-500 transition-colors relative z-10"
         >
           Fork on GitHub
         </a>
