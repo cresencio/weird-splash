@@ -42,13 +42,6 @@ export default function Home() {
   const [sprite, setSprite] = useState<string[][]>([]);
   const [ascii, setAscii] = useState<string[]>([]);
 
-  /*
-   * Because we no longer display a glitch overlay inside the card, we
-   * remove the ref and associated effect.  The glitch animation is
-   * applied directly to the `<h1>` via conditional class names.
-   */
-  // No ref or useEffect required for glitch anymore
-
   /**
    * Generate a random 8×8 pixel sprite.  Each cell is assigned a random
    * hue from the HSL colour wheel.  Pastel saturation and mid‑tone
@@ -71,13 +64,21 @@ export default function Home() {
    * Generate a block of ASCII art.  We assemble lines from a small
    * character set to give the impression of random noise.  The neon
    * gradient effect is applied via CSS (see the styles at the bottom).
+   *
+   * To better fill the width of the footer, the line length is derived
+   * from the current viewport width.  On the client we can access
+   * `window.innerWidth` to compute an approximate character count.
    */
   function generateAscii() {
     const asciiLines: string[] = [];
     const chars = ["#", "@", "$", "%", "&", "*", "+", "=", "?", "."];
+    // Determine character count based on viewport width.  A divisor of 10
+    // yields reasonably wide lines without over‑flowing typical viewports.
+    const lineLength =
+      typeof window !== "undefined" ? Math.max(32, Math.floor(window.innerWidth / 10)) : 80;
     for (let i = 0; i < 10; i++) {
       let line = "";
-      for (let j = 0; j < 32; j++) {
+      for (let j = 0; j < lineLength; j++) {
         line += chars[Math.floor(Math.random() * chars.length)];
       }
       asciiLines.push(line);
@@ -159,53 +160,66 @@ export default function Home() {
 
       {/* Gallery section with four interactive cards */}
       <section
-        className="w-full py-12 px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"
+        className="relative w-full py-12 px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"
         /* Use the CSS variable defined on the root element to set the
          * background of the card area. */
         style={{ backgroundColor: 'var(--card-bg)' }}
       >
+        {/* Pixel Sprite background overlay.  When the sprite is active,
+             render an 8×8 grid that fills the entire card section.  Each
+             cell inherits its colour from the sprite data.  The overlay is
+             absolutely positioned and ignores pointer events so it doesn’t
+             intercept clicks on the cards. */}
+        {spriteActive && (
+          <div
+            className="absolute inset-0"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(8, 1fr)',
+              gridTemplateRows: 'repeat(8, 1fr)',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          >
+            {sprite.map((row, i) =>
+              row.map((colour, j) => (
+                <div key={`${i}-${j}`} style={{ background: colour }} />
+              ))
+            )}
+          </div>
+        )}
         {cardLabels.map((label) => (
           <div
             key={label}
             onClick={() => handleCardClick(label)}
-            className="relative bg-[#0d0d0d] border border-purple-800 rounded-lg p-4 flex items-center justify-center hover:bg-[#1f1f2e] transition-colors cursor-pointer overflow-hidden"
+            className="relative z-10 bg-[#0d0d0d] border border-purple-800 rounded-lg p-4 flex items-center justify-center hover:bg-[#1f1f2e] transition-colors cursor-pointer overflow-hidden"
           >
             <span
               className={`${pressStart.className} text-sm text-center text-[#d6a4ff]`}
             >
               {label}
             </span>
-            {/* Pixel Sprite overlay */}
-            {label === 'Pixel Sprite Mixer' && spriteActive && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 p-2">
-                <div className="grid grid-cols-8 gap-[1px]">
-                  {sprite.map((row, i) =>
-                    row.map((colour, j) => (
-                      <div
-                        key={`${i}-${j}`}
-                        style={{ width: 12, height: 12, background: colour }}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Removed the per‑card sprite overlay.  The sprite now covers the
+                entire gallery section when active. */}
           </div>
         ))}
       </section>
 
       {/* Footer with a call‑to‑action button */}
       <footer className="py-8 text-center relative">
-        {/* When the Neon ASCII Shader is active, render the ASCII art in the footer.
-            We absolutely position the container so it sits behind the button and
-            disable pointer events so it doesn’t block interactions. */}
+        {/* When the Neon ASCII Shader is active, render the ASCII art across
+            the full width of the footer.  The container stretches to fill
+            the footer and uses flexbox to stack lines vertically. */}
         {asciiActive && (
           <div
-            className="absolute inset-0 overflow-auto px-4 flex flex-col items-center justify-center"
+            className="absolute inset-0 overflow-auto flex flex-col justify-center w-full"
             style={{ pointerEvents: 'none' }}
           >
             {ascii.map((line, idx) => (
-              <pre key={idx} className="font-mono text-xs neon-text m-0">
+              <pre
+                key={idx}
+                className="font-mono text-xs neon-text m-0 w-full"
+              >
                 {line}
               </pre>
             ))}
